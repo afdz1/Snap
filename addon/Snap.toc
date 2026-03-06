@@ -1,0 +1,8 @@
+## Interface: 120000
+## Title: Snap
+## Notes: Logs player death, item loot, and dungeon completion events with automatic screenshots.
+## Author: Welp
+## Version: 1.0.0
+## SavedVariables: SnapDB, SnapCurrentCharacter
+
+Snap.lua

@@ -1,0 +1,28 @@
+# ── Secrets (never commit these) ─────────────────────────────────────────────
+companion/bot_secrets.py
+
+# ── User config (machine-specific) ───────────────────────────────────────────
+companion/config.json
+
+# ── Build artifacts ───────────────────────────────────────────────────────────
+dist/
+build/
+*.spec.bak
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Generated icon files (produced by build_icon.py before PyInstaller) ───────
+addon/icon.png
+addon/icon.ico
+
+# ── Font cache (downloaded at runtime on first launch) ───────────────────────
+companion/assets/
+
+# ── Environment / IDE ─────────────────────────────────────────────────────────
+.env
+.venv/
+venv/
+.idea/
+.vscode/
+
