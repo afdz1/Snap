@@ -33,7 +33,7 @@ ico_path = os.path.join("addon", "icon.ico")
 
 # ── PNG (for WoW addon) ───────────────────────────────────────────────────────
 pixmap.save(png_path, "PNG")
-print(f"  ✓  {png_path}")
+print(f"  OK  {png_path}")
 
 # ── ICO (for Windows exe) ─────────────────────────────────────────────────────
 try:
@@ -44,9 +44,9 @@ try:
             format="ICO",
             sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (256, 256)],
         )
-    print(f"  ✓  {ico_path}")
+    print(f"  OK  {ico_path}")
 except ImportError:
-    print("  ⚠  Pillow not found — skipping .ico generation.")
-    print("     Install it with:  pip install Pillow")
-    print("     The exe will fall back to the default Python icon without it.")
+    print("  WARN  Pillow not found -- skipping .ico generation.")
+    print("        Install it with:  pip install Pillow")
+    print("        The exe will fall back to the default Python icon without it.")
 
