@@ -6,11 +6,17 @@ Google Fonts on first run and cached in assets/fonts/.
 """
 
 import os
+import sys
 import urllib.request
 from PyQt6.QtGui import QFontDatabase, QFont
 from PyQt6.QtWidgets import QApplication
 
-_FONTS_DIR = os.path.join(os.path.dirname(__file__), "assets", "fonts")
+if getattr(sys, "frozen", False):
+    # Running as a PyInstaller exe — store fonts next to Snap.exe (writable, persistent)
+    _FONTS_DIR = os.path.join(os.path.dirname(sys.executable), "assets", "fonts")
+else:
+    # Running from source
+    _FONTS_DIR = os.path.join(os.path.dirname(__file__), "assets", "fonts")
 
 _FONT_URLS = {
     "Cinzel-Regular.ttf": (

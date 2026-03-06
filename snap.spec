@@ -20,11 +20,10 @@ a = Analysis(
     binaries=[],
     datas=[
         # WoW addon folder — extracted to sys._MEIPASS/addon/ at runtime
-        ('addon',              'addon'),
-        # Font assets — extracted to sys._MEIPASS/assets/ at runtime
-        ('companion/assets',   'assets'),
-        # bot_secrets is a Python module; it's auto-bundled via import,
-        # but listing it here makes the dependency explicit.
+        ('addon', 'addon'),
+        # Fonts are downloaded at runtime next to the exe; only bundle them
+        # if they were pre-downloaded (e.g. a local build after running the app once).
+        *([('companion/assets', 'assets')] if os.path.isdir('companion/assets') else []),
     ],
     hiddenimports=[
         'discord',
