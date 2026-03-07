@@ -1,12 +1,20 @@
 """
 config.py
-Loads and saves companion settings to config.json next to this file.
+Loads and saves companion settings to config.json next to the exe (or script).
 """
 
 import json
 import os
+import sys
 
-_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
+# When frozen by PyInstaller, __file__ points inside the temp extraction folder.
+# We always want config.json to live beside the actual exe / script instead.
+if getattr(sys, "frozen", False):
+    _BASE_DIR = os.path.dirname(sys.executable)
+else:
+    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+_CONFIG_FILE = os.path.join(_BASE_DIR, "config.json")
 
 DEFAULTS = {
     "screenshots_folder": r"C:\Program Files (x86)\World of Warcraft\_retail_\Screenshots",
