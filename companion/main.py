@@ -149,13 +149,16 @@ class SnapWindow(QMainWindow):
     # ── Settings ──────────────────────────────────────────────────────────────
 
     def _open_settings(self) -> None:
-        dlg = SettingsDialog(self.cfg, parent=self)
-        if dlg.exec():
-            self.cfg = dlg.get_config()
-            self._log("Settings saved.")
-            if self._running:
-                self._stop()
-            self._start()
+        try:
+            dlg = SettingsDialog(self.cfg, parent=self)
+            if dlg.exec():
+                self.cfg = dlg.get_config()
+                self._log("Settings saved.")
+                if self._running:
+                    self._stop()
+                self._start()
+        except Exception as exc:
+            self._log(f"ERROR (settings): {exc}")
 
     # ── Watcher ───────────────────────────────────────────────────────────────
 
@@ -184,18 +187,26 @@ class SnapWindow(QMainWindow):
             self._log(f"Addon: {msg}")
 
     def _start(self) -> None:
-        folder = self.cfg["screenshots_folder"]
-        if not os.path.isdir(folder):
-            self._log(f"ERROR: folder not found — {folder}")
-            return
-        self._watcher = watcher.ScreenshotWatcher(folder, self._on_screenshot)
-        self._watcher.start()
-        self._running = True
-        self._toggle_btn.setText("■   Stop Watching")
-        self._watcher_lbl.setText("⬤   Watcher: Active")
-        self._watcher_lbl.setStyleSheet(f"color: {theme.GREEN};")
-        self._tray.set_watching(True)
-        self._log(f"Watching: {folder}")
+        try:
+            folder = self.cfg["screenshots_folder"]
+            if not folder or not folder.strip():
+                self._log("ERROR: no Screenshots folder set — open Settings to configure.")
+                return
+            # Normalise path (handles forward slashes, trailing slashes, drive roots)
+            folder = os.path.normpath(folder.strip())
+            if not os.path.isdir(folder):
+                self._log(f"ERROR: folder not found — {folder}")
+                return
+            self._watcher = watcher.ScreenshotWatcher(folder, self._on_screenshot)
+            self._watcher.start()
+            self._running = True
+            self._toggle_btn.setText("■   Stop Watching")
+            self._watcher_lbl.setText("⬤   Watcher: Active")
+            self._watcher_lbl.setStyleSheet(f"color: {theme.GREEN};")
+            self._tray.set_watching(True)
+            self._log(f"Watching: {folder}")
+        except Exception as exc:
+            self._log(f"ERROR (watcher): {exc}")
 
     def _stop(self) -> None:
         if self._watcher:
@@ -293,6 +304,19 @@ class SnapWindow(QMainWindow):
 
 
 if __name__ == "__main__":
+    # ── Global crash logger ────────────────────────────────────────────────
+    # console=False exes swallow unhandled exceptions silently. Write them to
+    # snap_crash.log beside the exe so issues can actually be diagnosed.
+    import traceback
+    _log_dir  = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) \
+                else os.path.dirname(os.path.abspath(__file__))
+    _crash_log = os.path.join(_log_dir, "snap_crash.log")
+
+    def _excepthook(exc_type, exc_value, exc_tb):
+        with open(_crash_log, "a", encoding="utf-8") as f:
+            f.write("".join(traceback.format_exception(exc_type, exc_value, exc_tb)))
+    sys.excepthook = _excepthook
+
     # ── Single-instance lock (Windows named mutex) ─────────────────────────
     # CreateMutexW returns a handle; GetLastError() == ERROR_ALREADY_EXISTS (183)
     # if another instance is already running.
