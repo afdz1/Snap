@@ -217,7 +217,20 @@ class SnapWindow(QMainWindow):
             if self._running:
                 self._log("WARNING: Nvidia Instant Replay not detected.")
 
-    # ── Screenshot → GIF pipeline ─────────────────────────────────────────────
+    # ── Screenshot → clip pipeline ────────────────────────────────────────────
+
+    def _discord_creds(self) -> tuple[str, str]:
+        """Return (bot_token, channel_id) — config first, bot_secrets as fallback."""
+        token = self.cfg.get("discord_bot_token", "").strip() or _BS_TOKEN
+        ch_id = self.cfg.get("discord_channel_id", "").strip() or _BS_CHANNEL
+        return token, ch_id
+
+    def _send_screenshot_fallback(self, screenshot_path: str, caption: str) -> None:
+        """Upload the raw JPEG screenshot to Discord as a fallback."""
+        self._log("Falling back to screenshot upload…")
+        bot_token, channel_id = self._discord_creds()
+        ok, msg = discord_sender.send(bot_token, channel_id, screenshot_path, caption=caption)
+        self._log(msg)
 
     def _on_screenshot(self, screenshot_path: str) -> None:
         name = os.path.splitext(os.path.basename(screenshot_path))[0]
@@ -229,6 +242,12 @@ class SnapWindow(QMainWindow):
         )
         webm_path = os.path.join(clips_folder, name + ".webm")
 
+        # Resolve player info once — used by both success and fallback paths
+        info    = character.get_player_info(self.cfg["screenshots_folder"])
+        caption = character.format_caption(info)
+        if caption:
+            self._log(f"Player: {caption}")
+
         def on_video_ready(video_path: str) -> None:
             self._log(f"Replay captured: {os.path.basename(video_path)}")
             try:
@@ -237,26 +256,18 @@ class SnapWindow(QMainWindow):
                     duration=int(self.cfg["clip_duration"]),
                 )
                 self._log(f"WebM ready:  {os.path.basename(webm_out)}")
-                info    = character.get_player_info(self.cfg["screenshots_folder"])
-                caption = character.format_caption(info)
-                if caption:
-                    self._log(f"Player: {caption}")
-                # Prefer credentials from Settings (config.json); fall back to
-                # the baked-in bot_secrets.py from CI if the user hasn't set them.
-                bot_token   = self.cfg.get("discord_bot_token", "").strip() or _BS_TOKEN
-                channel_id  = self.cfg.get("discord_channel_id", "").strip() or _BS_CHANNEL
+                bot_token, channel_id = self._discord_creds()
                 ok, msg = discord_sender.send(
-                    bot_token,
-                    channel_id,
-                    webm_out,
-                    caption=caption,
+                    bot_token, channel_id, webm_out, caption=caption,
                 )
                 self._log(msg)
             except Exception as exc:
                 self._log(f"ERROR (convert): {exc}")
+                self._send_screenshot_fallback(screenshot_path, caption)
 
         def on_timeout() -> None:
             self._log("ERROR: timed out — is Instant Replay enabled?")
+            self._send_screenshot_fallback(screenshot_path, caption)
 
         replay.trigger_and_wait(
             nvidia_folder=self.cfg["nvidia_video_folder"],
