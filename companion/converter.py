@@ -9,11 +9,15 @@ Uses the bundled ffmpeg binary from imageio-ffmpeg — no system install needed.
 """
 
 import os
+import sys
 import subprocess
 import imageio_ffmpeg
 
 _ffmpeg: str | None = None
 _MAX_HEIGHT = 1080  # cap at 1080p; smaller sources are left at their native resolution
+
+# Prevent ffmpeg from spawning a visible console window on Windows
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 
 def _get_ffmpeg() -> str:
@@ -58,7 +62,7 @@ def make_webm(
                 "-c:a", "aac", "-b:a", "192k",      # preserve audio (game/mic/discord)
                 mp4_temp,
             ],
-            check=True, capture_output=True,
+            check=True, capture_output=True, creationflags=_NO_WINDOW,
         )
 
         # Step 2 — 1080p VP9 WebM with Opus audio (Discord-compatible)
@@ -74,7 +78,7 @@ def make_webm(
                 "-c:a", "libopus", "-b:a", "128k",  # Opus audio (WebM standard)
                 webm_output,
             ],
-            check=True, capture_output=True,
+            check=True, capture_output=True, creationflags=_NO_WINDOW,
         )
 
     finally:
