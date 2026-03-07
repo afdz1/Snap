@@ -24,13 +24,31 @@ def _bundled_addon_path() -> str:
     return os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "addon"))
 
 
-def _installed_addon_path(screenshots_folder: str) -> str:
+_WOW_FLAVOURS = ("_retail_", "_classic_era_", "_classic_", "_ptr_", "_xptr_")
+
+
+def _installed_addon_path(screenshots_folder: str, wow_exe: str = "") -> str:
     """
-    Derives the WoW AddOns directory from the configured screenshots folder.
-    Expected layout:  …/_retail_/Screenshots/  →  …/_retail_/Interface/AddOns/Snap/
+    Derives the WoW AddOns directory.
+
+    Priority:
+      1. From screenshots_folder  (…/_retail_/Screenshots → …/_retail_/Interface/AddOns/Snap/)
+      2. From wow_exe location    (scan for the first flavour subfolder that exists)
     """
-    retail_dir = os.path.normpath(os.path.join(screenshots_folder, ".."))
-    return os.path.join(retail_dir, "Interface", "AddOns", _ADDON_NAME)
+    if screenshots_folder and os.path.isdir(screenshots_folder):
+        retail_dir = os.path.normpath(os.path.join(screenshots_folder, ".."))
+        return os.path.join(retail_dir, "Interface", "AddOns", _ADDON_NAME)
+
+    if wow_exe and os.path.isfile(wow_exe):
+        wow_dir = os.path.dirname(os.path.normpath(wow_exe))
+        for flavour in _WOW_FLAVOURS:
+            flavour_dir = os.path.join(wow_dir, flavour)
+            if os.path.isdir(flavour_dir):
+                return os.path.join(flavour_dir, "Interface", "AddOns", _ADDON_NAME)
+        # Fallback: use _retail_ even if it doesn't exist yet
+        return os.path.join(wow_dir, "_retail_", "Interface", "AddOns", _ADDON_NAME)
+
+    return ""
 
 
 # ── Version reader ────────────────────────────────────────────────────────────
@@ -49,19 +67,22 @@ def _read_toc_version(toc_path: str) -> str:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def check_and_install(screenshots_folder: str) -> str | None:
+def check_and_install(screenshots_folder: str, wow_exe: str = "") -> str | None:
     """
     Installs or updates the bundled addon into the WoW AddOns folder.
 
     Returns a human-readable log message when an install/update was performed,
     or None when the installed addon is already up to date.
-    Silently returns None if screenshots_folder is not configured.
+    Requires at least one of screenshots_folder or wow_exe to be set.
     """
-    if not screenshots_folder or not os.path.isdir(screenshots_folder):
+    if not screenshots_folder and not wow_exe:
         return None
 
-    bundled_dir  = _bundled_addon_path()
-    installed_dir = _installed_addon_path(screenshots_folder)
+    bundled_dir   = _bundled_addon_path()
+    installed_dir = _installed_addon_path(screenshots_folder, wow_exe)
+
+    if not installed_dir:
+        return None
 
     bundled_toc   = os.path.join(bundled_dir,   f"{_ADDON_NAME}.toc")
     installed_toc = os.path.join(installed_dir, f"{_ADDON_NAME}.toc")

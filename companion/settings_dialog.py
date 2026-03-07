@@ -14,6 +14,9 @@ import config
 import startup
 import theme
 
+# Subfolders checked (in priority order) when deriving paths from WoW exe
+_WOW_FLAVOURS = ("_retail_", "_classic_era_", "_classic_", "_ptr_", "_xptr_")
+
 
 def _divider() -> QFrame:
     line = QFrame()
@@ -46,8 +49,23 @@ class SettingsDialog(QDialog):
         form.setSpacing(10)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
+        # ── WoW Executable (top of form — auto-fills screenshots folder) ──
+        wow_exe_edit = QLineEdit(str(self.cfg.get("wow_exe", "")))
+        wow_exe_edit.setPlaceholderText(r"e.g. D:\World of Warcraft\Wow.exe")
+        self._fields["wow_exe"] = wow_exe_edit
+        wow_browse = QPushButton("…")
+        wow_browse.setFixedWidth(34)
+        wow_browse.clicked.connect(self._browse_wow_exe)
+        wow_row = QHBoxLayout()
+        wow_row.setSpacing(6)
+        wow_row.addWidget(wow_exe_edit)
+        wow_row.addWidget(wow_browse)
+        wow_lbl = QLabel("WoW Executable")
+        wow_lbl.setStyleSheet(f"color: {theme.GOLD};")
+        form.addRow(wow_lbl, wow_row)
+
         path_fields = [
-            ("WoW Screenshots Folder",    "screenshots_folder"),
+            ("Screenshots Folder",         "screenshots_folder"),
             ("Nvidia Video Output Folder", "nvidia_video_folder"),
         ]
         text_fields = [
@@ -140,6 +158,29 @@ class SettingsDialog(QDialog):
         save_btn.setMinimumWidth(140)
         save_btn.clicked.connect(self._save)
         layout.addWidget(save_btn, alignment=Qt.AlignmentFlag.AlignRight)
+
+    def _browse_wow_exe(self) -> None:
+        """Let the user pick Wow.exe and auto-fill the screenshots folder."""
+        exe, _ = QFileDialog.getOpenFileName(
+            self, "Select WoW Executable", "", "Executables (*.exe)"
+        )
+        if not exe:
+            return
+        exe = os.path.normpath(exe)
+        self._fields["wow_exe"].setText(exe)
+
+        # Auto-derive screenshots folder from the exe location
+        wow_dir = os.path.dirname(exe)
+        for flavour in _WOW_FLAVOURS:
+            shots = os.path.join(wow_dir, flavour, "Screenshots")
+            if os.path.isdir(shots):
+                self._fields["screenshots_folder"].setText(os.path.normpath(shots))
+                return
+
+        # Screenshots folder doesn't exist yet — pre-fill the retail path anyway
+        # so the user at least has a sensible default once they launch WoW once.
+        fallback = os.path.join(wow_dir, "_retail_", "Screenshots")
+        self._fields["screenshots_folder"].setText(os.path.normpath(fallback))
 
     def _open_nvidia_audio(self) -> None:
         """Triggers the GeForce Experience overlay (Alt+Z) so the user can

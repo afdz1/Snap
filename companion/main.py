@@ -182,7 +182,10 @@ class SnapWindow(QMainWindow):
 
     def _check_addon(self) -> None:
         """Install or update the bundled WoW addon silently."""
-        msg = addon_installer.check_and_install(self.cfg.get("screenshots_folder", ""))
+        msg = addon_installer.check_and_install(
+            self.cfg.get("screenshots_folder", ""),
+            self.cfg.get("wow_exe", ""),
+        )
         if msg:
             self._log(f"Addon: {msg}")
 

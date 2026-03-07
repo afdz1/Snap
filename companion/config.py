@@ -17,6 +17,7 @@ else:
 _CONFIG_FILE = os.path.join(_BASE_DIR, "config.json")
 
 DEFAULTS = {
+    "wow_exe": "",  # path to Wow.exe — used to locate addon/screenshots folders
     "screenshots_folder": r"C:\Program Files (x86)\World of Warcraft\_retail_\Screenshots",
     "nvidia_video_folder": os.path.join(os.path.expanduser("~"), "Videos"),
     "hotkey": "alt+f10",
