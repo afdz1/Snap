@@ -301,7 +301,7 @@ if __name__ == "__main__":
     if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
         # Bring the existing window to the foreground and exit this instance
         _user32 = ctypes.windll.user32
-        _EnumProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.HWND, ctypes.LPARAM)
+        _EnumProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_long)
         def _raise_snap(hwnd, _):
             if _user32.IsWindowVisible(hwnd):
                 buf = ctypes.create_unicode_buffer(256)
