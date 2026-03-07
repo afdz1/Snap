@@ -1,7 +1,7 @@
 """
 discord_sender.py
-Uploads a clip to a Discord channel via bot API.
-Uses discord.py to connect as a bot and send the file.
+Uploads a clip (or screenshot) to a Discord channel via the REST API.
+Uses aiohttp directly — no discord.py Client, no event loop conflicts.
 """
 
 import os
@@ -9,21 +9,41 @@ import ssl
 import asyncio
 import certifi
 import aiohttp
-import discord
-from discord import File
 
-_MAX_BYTES = 25 * 1024 * 1024  # 25 MB Discord free tier upload limit
+_MAX_BYTES   = 25 * 1024 * 1024          # 25 MB Discord free-tier limit
+_API_BASE    = "https://discord.com/api/v10"
 
 
-def _make_connector() -> aiohttp.TCPConnector:
-    """Return a TCPConnector backed by certifi's CA bundle.
+async def _upload(
+    bot_token: str,
+    ch_id: int,
+    file_path: str,
+    caption: str,
+) -> tuple[bool, str]:
+    """Async core: POST the file to Discord's channel messages endpoint."""
+    # Connector is created inside the running event loop — no 'no running event
+    # loop' error, and certifi's CA bundle fixes SSL issues in frozen exes.
+    ssl_ctx   = ssl.create_default_context(cafile=certifi.where())
+    connector = aiohttp.TCPConnector(ssl=ssl_ctx)
 
-    PyInstaller-frozen exes often bundle an outdated or mismatched SSL library
-    that causes SSLV3_ALERT_BAD_RECORD_MAC errors.  Pointing the SSL context
-    at certifi's up-to-date CA store fixes the TLS handshake.
-    """
-    ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-    return aiohttp.TCPConnector(ssl=ssl_ctx)
+    headers = {"Authorization": f"Bot {bot_token}"}
+    url     = f"{_API_BASE}/channels/{ch_id}/messages"
+
+    async with aiohttp.ClientSession(connector=connector) as session:
+        with open(file_path, "rb") as fh:
+            form = aiohttp.FormData()
+            if caption:
+                form.add_field("content", caption)
+            form.add_field(
+                "file",
+                fh,
+                filename=os.path.basename(file_path),
+            )
+            async with session.post(url, headers=headers, data=form) as resp:
+                if resp.status in (200, 201):
+                    return True, f"Uploaded to Discord: {os.path.basename(file_path)}"
+                text = await resp.text()
+                return False, f"Discord API error {resp.status}: {text}"
 
 
 def send(
@@ -33,8 +53,7 @@ def send(
     caption: str = "",
 ) -> tuple[bool, str]:
     """
-    Synchronous wrapper that runs the async Discord bot upload.
-    caption is posted as message text above the attached file (optional).
+    Synchronous wrapper — safe to call from any thread.
     Returns (success: bool, message: str).
     """
     if not bot_token or not bot_token.strip():
@@ -56,39 +75,7 @@ def send(
         mb = size / 1024 / 1024
         return False, f"File too large ({mb:.1f} MB > 25 MB limit) — skipping upload."
 
-    result = {"success": False, "msg": ""}
-
-    intents = discord.Intents.default()
-    intents.message_content = True
-    client = discord.Client(intents=intents, connector=_make_connector())
-
-    @client.event
-    async def on_ready():
-        try:
-            channel = client.get_channel(ch_id)
-            if not channel:
-                result["msg"] = f"Channel {ch_id} not found — check channel ID."
-                return
-
-            filename = os.path.basename(file_path)
-            with open(file_path, "rb") as f:
-                await channel.send(
-                    content=caption if caption else None,
-                    file=File(f, filename=filename),
-                )
-
-            result["success"] = True
-            result["msg"] = f"Uploaded to Discord: {filename}"
-        except Exception as e:
-            result["msg"] = f"Discord upload error: {e}"
-        finally:
-            await client.close()
-
     try:
-        # client.run() handles the event loop and blocks until client.close()
-        client.run(bot_token.strip(), log_handler=None)
-        return result["success"], result["msg"]
-    except discord.LoginFailure:
-        return False, "Discord bot token invalid — check your token in Settings."
-    except Exception as e:
-        return False, f"Discord error: {e}"
+        return asyncio.run(_upload(bot_token.strip(), ch_id, file_path, caption))
+    except Exception as exc:
+        return False, f"Discord upload error: {exc}"
