@@ -79,8 +79,12 @@ class SnapWindow(QMainWindow):
         # Install/update bundled addon on every launch
         QTimer.singleShot(200, self._check_addon)
 
-        # Silently check for app updates in the background (after 3 s)
+        # Silently check for app updates in the background (after 3 s),
+        # then re-check every 30 minutes so mid-session updates are caught.
         QTimer.singleShot(3_000, lambda: updater.check_and_download(self._log))
+        self._update_timer = QTimer(self)
+        self._update_timer.timeout.connect(lambda: updater.check_and_download(self._log))
+        self._update_timer.start(30 * 60 * 1_000)  # 30 minutes
 
     # ── UI ────────────────────────────────────────────────────────────────────
 

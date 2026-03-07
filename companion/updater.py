@@ -44,6 +44,8 @@ def check_and_download(on_update_ready=None) -> None:
     """
     def _run():
         global _update_pending, _new_exe_path
+        if _update_pending:
+            return  # already downloaded — nothing to do until next restart
         try:
             req = urllib.request.Request(_API_URL, headers={"User-Agent": "Snap-Updater"})
             with urllib.request.urlopen(req, timeout=10) as resp:
