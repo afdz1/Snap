@@ -32,6 +32,7 @@ a = Analysis(
         'imageio_ffmpeg',
         'watchdog.observers.winapi',
         'watchdog.events',
+        'certifi',
     ],
     hookspath=[],
     hooksconfig={},

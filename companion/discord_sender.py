@@ -5,11 +5,25 @@ Uses discord.py to connect as a bot and send the file.
 """
 
 import os
+import ssl
 import asyncio
+import certifi
+import aiohttp
 import discord
 from discord import File
 
 _MAX_BYTES = 25 * 1024 * 1024  # 25 MB Discord free tier upload limit
+
+
+def _make_connector() -> aiohttp.TCPConnector:
+    """Return a TCPConnector backed by certifi's CA bundle.
+
+    PyInstaller-frozen exes often bundle an outdated or mismatched SSL library
+    that causes SSLV3_ALERT_BAD_RECORD_MAC errors.  Pointing the SSL context
+    at certifi's up-to-date CA store fixes the TLS handshake.
+    """
+    ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+    return aiohttp.TCPConnector(ssl=ssl_ctx)
 
 
 def send(
@@ -46,7 +60,7 @@ def send(
 
     intents = discord.Intents.default()
     intents.message_content = True
-    client = discord.Client(intents=intents)
+    client = discord.Client(intents=intents, connector=_make_connector())
 
     @client.event
     async def on_ready():
