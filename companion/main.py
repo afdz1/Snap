@@ -289,6 +289,26 @@ class SnapWindow(QMainWindow):
 
 
 if __name__ == "__main__":
+    # ── Single-instance lock (Windows named mutex) ─────────────────────────
+    # CreateMutexW returns a handle; GetLastError() == ERROR_ALREADY_EXISTS (183)
+    # if another instance is already running.
+    _MUTEX_NAME = "Global\\SnapCompanion_SingleInstance"
+    _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, _MUTEX_NAME)
+    if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        # Bring the existing window to the foreground and exit this instance
+        _user32 = ctypes.windll.user32
+        _EnumProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.HWND, ctypes.LPARAM)
+        def _raise_snap(hwnd, _):
+            if _user32.IsWindowVisible(hwnd):
+                buf = ctypes.create_unicode_buffer(256)
+                _user32.GetWindowTextW(hwnd, buf, 256)
+                if "Snap" in buf.value:
+                    _user32.ShowWindow(hwnd, 9)   # SW_RESTORE
+                    _user32.SetForegroundWindow(hwnd)
+            return True
+        _user32.EnumWindows(_EnumProc(_raise_snap), 0)
+        sys.exit(0)
+
     # Tell Windows this is its own app so the taskbar shows our icon, not python.exe
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("snap.companion")
 
