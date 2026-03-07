@@ -32,14 +32,15 @@ from tray import SnapTray, make_icon
 from settings_dialog import SettingsDialog
 from version import __version__
 
-# Discord credentials come from bot_secrets.py (bundled in exe, never in config)
+# bot_secrets.py is baked in by CI (GitHub Secrets → PyInstaller).
+# It acts as a fallback when the user hasn't entered credentials via Settings.
 try:
     import bot_secrets as _bs
-    _BOT_TOKEN  = _bs.BOT_TOKEN
-    _CHANNEL_ID = str(_bs.CHANNEL_ID)
+    _BS_TOKEN   = str(_bs.BOT_TOKEN).strip()
+    _BS_CHANNEL = str(_bs.CHANNEL_ID).strip()
 except ImportError:
-    _BOT_TOKEN  = ""
-    _CHANNEL_ID = ""
+    _BS_TOKEN   = ""
+    _BS_CHANNEL = ""
 
 
 def _divider() -> QFrame:
@@ -240,9 +241,13 @@ class SnapWindow(QMainWindow):
                 caption = character.format_caption(info)
                 if caption:
                     self._log(f"Player: {caption}")
+                # Prefer credentials from Settings (config.json); fall back to
+                # the baked-in bot_secrets.py from CI if the user hasn't set them.
+                bot_token   = self.cfg.get("discord_bot_token", "").strip() or _BS_TOKEN
+                channel_id  = self.cfg.get("discord_channel_id", "").strip() or _BS_CHANNEL
                 ok, msg = discord_sender.send(
-                    _BOT_TOKEN,
-                    _CHANNEL_ID,
+                    bot_token,
+                    channel_id,
                     webm_out,
                     caption=caption,
                 )

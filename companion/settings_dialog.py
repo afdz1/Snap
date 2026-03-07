@@ -93,6 +93,33 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(_divider())
 
+        # Discord credentials
+        discord_lbl = QLabel("Discord")
+        discord_lbl.setStyleSheet(f"color: {theme.GOLD_BR}; font-size: 13px;")
+        layout.addWidget(discord_lbl)
+
+        form3 = QFormLayout()
+        form3.setSpacing(10)
+        form3.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+        token_edit = QLineEdit(str(self.cfg.get("discord_bot_token", "")))
+        token_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        token_edit.setPlaceholderText("Bot token from discord.com/developers/applications")
+        self._fields["discord_bot_token"] = token_edit
+        token_lbl = QLabel("Bot Token")
+        token_lbl.setStyleSheet(f"color: {theme.GOLD};")
+        form3.addRow(token_lbl, token_edit)
+
+        channel_edit = QLineEdit(str(self.cfg.get("discord_channel_id", "")))
+        channel_edit.setPlaceholderText("Channel ID (right-click channel → Copy ID)")
+        self._fields["discord_channel_id"] = channel_edit
+        channel_lbl = QLabel("Channel ID")
+        channel_lbl.setStyleSheet(f"color: {theme.GOLD};")
+        form3.addRow(channel_lbl, channel_edit)
+
+        layout.addLayout(form3)
+        layout.addWidget(_divider())
+
         nvidia_lbl = QLabel("Nvidia")
         nvidia_lbl.setStyleSheet(f"color: {theme.GOLD_BR}; font-size: 13px;")
         layout.addWidget(nvidia_lbl)

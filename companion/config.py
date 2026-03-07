@@ -15,7 +15,10 @@ DEFAULTS = {
     "post_event_delay": 3,    # seconds to wait before triggering Save Replay
     "clip_duration": 10,      # seconds to extract (tail of saved replay)
     "launch_on_startup": True, # default on; persisted so unchecking is remembered
-    # Discord credentials are stored in bot_secrets.py (bundled in exe, never in config.json)
+    # Discord credentials — set via Settings dialog; saved to config.json (gitignored).
+    # CI builds override these by baking bot_secrets.py into the exe via GitHub Secrets.
+    "discord_bot_token": "",
+    "discord_channel_id": "",
 }
 
 
