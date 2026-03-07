@@ -63,15 +63,14 @@ jobs:
       - name: Post release notification to Discord
         shell: pwsh
         run: |
-          $tag     = "${{ github.ref_name }}"
-          $repo    = "${{ github.repository }}"
-          $url     = "https://github.com/$repo/releases/tag/$tag"
-          $body    = @{
-            content = "**Snap $tag** has been released! Download it here: $url"
-          } | ConvertTo-Json
+          $tag  = "${{ github.ref_name }}"
+          $repo = "${{ github.repository }}"
+          $url  = "https://github.com/$repo/releases/tag/$tag"
+          $body = "{`"content`": `"**Snap $tag** has been released! Download it here: $url`"}"
           Invoke-RestMethod `
-            -Uri     "https://discord.com/api/v10/channels/${{ secrets.DISCORD_CHANNEL_ID }}/messages" `
-            -Method  Post `
-            -Headers @{ Authorization = "Bot ${{ secrets.DISCORD_BOT_TOKEN }}"; "Content-Type" = "application/json" } `
-            -Body    $body
+            -Uri         "https://discord.com/api/v10/channels/${{ secrets.DISCORD_CHANNEL_ID }}/messages" `
+            -Method      Post `
+            -ContentType "application/json" `
+            -Headers     @{ Authorization = "Bot ${{ secrets.DISCORD_BOT_TOKEN }}" } `
+            -Body        $body
 
