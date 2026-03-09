@@ -28,6 +28,7 @@ import discord_sender
 import updater
 import addon_installer
 import character
+import event_metadata
 from tray import SnapTray, make_icon
 from settings_dialog import SettingsDialog
 from version import __version__
@@ -237,16 +238,33 @@ class SnapWindow(QMainWindow):
 
     # ── Screenshot → clip pipeline ────────────────────────────────────────────
 
-    def _discord_creds(self) -> tuple[str, str]:
-        """Return (bot_token, channel_id) — config first, bot_secrets as fallback."""
+    def _discord_creds(self, event_type: str | None = None) -> tuple[str, str]:
+        """
+        Return (bot_token, channel_id) — config first, bot_secrets as fallback.
+        
+        Args:
+            event_type: Optional event type (e.g., "DEATH") to use event-specific channel
+        
+        Returns:
+            (bot_token, channel_id) tuple
+        """
         token = self.cfg.get("discord_bot_token", "").strip() or _BS_TOKEN
+        
+        # Check for event-specific channel (e.g., death channel)
+        if event_type == "DEATH":
+            death_ch_id = self.cfg.get("discord_death_channel_id", "").strip()
+            if death_ch_id:
+                # Use death channel if configured
+                return token, death_ch_id
+        
+        # Use default channel
         ch_id = self.cfg.get("discord_channel_id", "").strip() or _BS_CHANNEL
         return token, ch_id
 
-    def _send_screenshot_fallback(self, screenshot_path: str, caption: str) -> None:
+    def _send_screenshot_fallback(self, screenshot_path: str, caption: str, event_type: str | None = None) -> None:
         """Upload the raw JPEG screenshot to Discord as a fallback."""
         self._log("Falling back to screenshot upload…")
-        bot_token, channel_id = self._discord_creds()
+        bot_token, channel_id = self._discord_creds(event_type=event_type)
         ok, msg = discord_sender.send(bot_token, channel_id, screenshot_path, caption=caption)
         self._log(msg)
 
@@ -260,32 +278,64 @@ class SnapWindow(QMainWindow):
         )
         webm_path = os.path.join(clips_folder, name + ".webm")
 
-        # Resolve player info once — used by both success and fallback paths
-        info    = character.get_player_info(self.cfg["screenshots_folder"])
-        caption = character.format_caption(info)
-        if caption:
-            self._log(f"Player: {caption}")
+        # Extract event information and player info
+        event_info = event_metadata.get_event_info(screenshot_path, self.cfg["screenshots_folder"])
+        player_info = character.get_player_info(self.cfg["screenshots_folder"])
+        
+        # Build caption with event context
+        caption = event_metadata.format_event_caption(event_info, player_info)
+        
+        # Log event detection
+        event_type = event_info.get("event_type", "UNKNOWN")
+        event_source = event_info.get("source", "none")
+        self._log(f"Event: {event_info.get('event_name', 'Unknown')} (detected via {event_source})")
+        if player_info.get("name"):
+            self._log(f"Player: {player_info.get('name')} — {player_info.get('realm', '')}")
 
         def on_video_ready(video_path: str) -> None:
             self._log(f"Replay captured: {os.path.basename(video_path)}")
+            
+            # Enhance event info with video analysis (detects red death border, etc.)
+            enhanced_event_info = event_metadata.enhance_event_info_with_video(event_info, video_path)
+            if enhanced_event_info.get("source") == "video_analysis":
+                # Video analysis found/confirmed an event
+                self._log(f"Video analysis: {enhanced_event_info.get('event_name', 'Event detected')}")
+                if enhanced_event_info.get("confidence"):
+                    self._log(f"Confidence: {enhanced_event_info['confidence']:.0%}")
+            
+            # Update caption with enhanced event info (use enhanced for final caption)
+            final_caption = event_metadata.format_event_caption(enhanced_event_info, player_info)
+            
             try:
+                # Add death overlay text if death detected
+                overlay_text = None
+                if enhanced_event_info.get("event_type") == "DEATH":
+                    player_name = player_info.get("name", "").strip()
+                    if player_name:
+                        overlay_text = f"{player_name} is dead."
+                
                 webm_out = converter.make_webm(
                     video_path, webm_path,
                     duration=int(self.cfg["clip_duration"]),
+                    overlay_text=overlay_text,
                 )
                 self._log(f"WebM ready:  {os.path.basename(webm_out)}")
-                bot_token, channel_id = self._discord_creds()
+                # Use death channel if death detected and configured, otherwise default
+                event_type = enhanced_event_info.get("event_type")
+                bot_token, channel_id = self._discord_creds(event_type=event_type)
                 ok, msg = discord_sender.send(
-                    bot_token, channel_id, webm_out, caption=caption,
+                    bot_token, channel_id, webm_out, caption=final_caption,
                 )
                 self._log(msg)
             except Exception as exc:
                 self._log(f"ERROR (convert): {exc}")
-                self._send_screenshot_fallback(screenshot_path, caption)
+                event_type = enhanced_event_info.get("event_type")
+                self._send_screenshot_fallback(screenshot_path, final_caption, event_type=event_type)
 
         def on_timeout() -> None:
             self._log("ERROR: timed out — is Instant Replay enabled?")
-            self._send_screenshot_fallback(screenshot_path, caption)
+            event_type = event_info.get("event_type")
+            self._send_screenshot_fallback(screenshot_path, caption, event_type=event_type)
 
         replay.trigger_and_wait(
             nvidia_folder=self.cfg["nvidia_video_folder"],

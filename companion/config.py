@@ -28,6 +28,7 @@ DEFAULTS = {
     # CI builds override these by baking bot_secrets.py into the exe via GitHub Secrets.
     "discord_bot_token": "",
     "discord_channel_id": "",
+    "discord_death_channel_id": "",  # Optional: separate channel for death clips (empty = use default)
 }
 
 

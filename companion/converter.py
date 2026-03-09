@@ -32,12 +32,17 @@ def make_webm(
     webm_output: str,
     duration: int = 10,
     fps: int = 30,
+    overlay_text: str | None = None,
+    overlay_duration: float = 2.0,
 ) -> str:
     """
     Pipeline:
       1. Trim last `duration` seconds of `video_path` → temporary MP4 (H.264).
       2. Convert trimmed MP4 → WebM (VP9) at `webm_output`.
       3. Delete the temporary MP4 and the original full-length `video_path`.
+    
+    If `overlay_text` is provided, adds a text overlay at the beginning of the video
+    for `overlay_duration` seconds.
 
     Returns webm_output_path.
     Raises subprocess.CalledProcessError on ffmpeg failure.
@@ -66,6 +71,34 @@ def make_webm(
         )
 
         # Step 2 — 1080p VP9 WebM with Opus audio (Discord-compatible)
+        # Build video filter chain
+        vf_parts = [
+            f"scale=-2:'min(ih,{_MAX_HEIGHT})':flags=lanczos",
+            f"fps={fps}",
+        ]
+        
+        # Add text overlay if provided
+        if overlay_text:
+            # Escape special characters for ffmpeg drawtext filter
+            # Replace single quotes with escaped version, escape colons and backslashes
+            escaped_text = overlay_text.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
+            
+            # Text overlay: centered horizontally, raised vertically, large font, white text with black outline
+            # Shows for overlay_duration seconds at the start
+            text_filter = (
+                f"drawtext=text='{escaped_text}'"
+                f":fontsize=60"
+                f":fontcolor=white"
+                f":borderw=3"
+                f":bordercolor=black"
+                f":x=(w-text_w)/2"
+                f":y=h*0.25"
+                f":enable='between(t,0,{overlay_duration})'"
+            )
+            vf_parts.append(text_filter)
+        
+        vf_chain = ",".join(vf_parts)
+        
         subprocess.run(
             [
                 ffmpeg, "-y",
@@ -74,7 +107,7 @@ def make_webm(
                 "-crf", "33", "-b:v", "0",          # constant-quality mode
                 "-cpu-used", "4",                    # 0=slowest/best … 8=fastest
                 "-deadline", "good",                 # balance quality vs speed
-                "-vf", f"fps={fps},scale=-2:'min(ih,{_MAX_HEIGHT})':flags=lanczos",
+                "-vf", vf_chain,
                 "-c:a", "libopus", "-b:a", "128k",  # Opus audio (WebM standard)
                 webm_output,
             ],

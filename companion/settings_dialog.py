@@ -135,6 +135,13 @@ class SettingsDialog(QDialog):
         channel_lbl.setStyleSheet(f"color: {theme.GOLD};")
         form3.addRow(channel_lbl, channel_edit)
 
+        death_channel_edit = QLineEdit(str(self.cfg.get("discord_death_channel_id", "")))
+        death_channel_edit.setPlaceholderText("Optional: Death channel ID (leave empty to use default)")
+        self._fields["discord_death_channel_id"] = death_channel_edit
+        death_channel_lbl = QLabel("Death Channel ID")
+        death_channel_lbl.setStyleSheet(f"color: {theme.GOLD};")
+        form3.addRow(death_channel_lbl, death_channel_edit)
+
         layout.addLayout(form3)
         layout.addWidget(_divider())
 
