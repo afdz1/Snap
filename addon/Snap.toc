@@ -1,8 +1,9 @@
 ## Interface: 120000
 ## Title: Snap
-## Notes: Logs player death, item loot, and dungeon completion events with automatic screenshots.
+## Notes: Automatic screenshots on death, boss kills, dungeons and epic loot. Type /snap to configure.
 ## Author: Welp
-## Version: 1.0.0
+## Version: 1.2.0
 ## SavedVariables: SnapDB, SnapCurrentCharacter
 
+SnapConfig.lua
 Snap.lua
